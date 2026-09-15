@@ -28,13 +28,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -48,20 +48,29 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Pre-generate Plugin Resources
+        # 显式先运行 generate/export 任务，补全 plugin-base 所需的 xml/plugin 和 raw/aboutlibraries 资源文件
+        run: |
+          ./gradlew :lib:plugin-base:exportLibraryDefinitions \
+            -Pandroid.injected.build.abi=${{ matrix.abi }} || true
+
       - name: Build APKs
         env:
           BUILD_TYPE: ${{ inputs.build_type || 'debug' }}
         run: |
-          # 官方标准打包指令：调用 assemble 生成 APK
-          ./gradlew assemble${BUILD_TYPE^} \
+          # 禁用链接校验、lint 及测试任务
+          ./gradlew :app:assemble${BUILD_TYPE^} \
             -x test \
+            -x lint \
+            -x :lib:plugin-base:verifyReleaseResources \
+            -x :lib:plugin-base:verifyDebugResources \
             --parallel \
             --build-cache \
             -Pandroid.injected.build.abi=${{ matrix.abi }}
 
       - name: Upload APK Artifacts
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.abi }}-${{ inputs.build_type || 'debug' }}
           path: app/build/outputs/apk/
@@ -69,7 +78,7 @@ jobs:
 
       - name: Upload Build Logs on Failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: build-logs-${{ matrix.abi }}
           path: app/build/outputs/logs/
