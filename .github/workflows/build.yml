@@ -34,7 +34,6 @@ jobs:
       fail-fast: false
 
     steps:
-      # 1. 使用 v7 版本的 checkout，并确保递归拉取 fcitx5 相关的子模块
       - name: Checkout code
         uses: actions/checkout@v7
         with:
@@ -47,7 +46,6 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 2. 安装缺失的 C++ / CMake 编译工具和 extra-cmake-modules (ECM)
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -60,11 +58,14 @@ jobs:
         env:
           BUILD_TYPE: ${{ inputs.build_type || 'debug' }}
         run: |
-          ./gradlew build${BUILD_TYPE^} \
+          # 1. 将 build 替换为 assemble，仅生成 APK，不触发 Bundle 生成任务
+          # 2. 传入 -Pandroid.injected.build.abi 参数，限制 Gradle 仅编译当前 Matrix 指定的 ABI
+          ./gradlew assemble${BUILD_TYPE^} \
             -x test \
             --parallel \
             --build-cache \
-            -Pandroid.ndkVersion=28.0.13004108
+            -Pandroid.ndkVersion=28.0.13004108 \
+            -Pandroid.injected.build.abi=${{ matrix.abi }}
 
       - name: Upload APK Artifacts
         if: success()
