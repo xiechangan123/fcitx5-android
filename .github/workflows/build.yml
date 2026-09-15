@@ -24,13 +24,9 @@ jobs:
       matrix:
         include:
           - abi: armeabi-v7a
-            build_type: debug
           - abi: arm64-v8a
-            build_type: debug
           - abi: x86
-            build_type: debug
           - abi: x86_64
-            build_type: debug
       fail-fast: false
 
     steps:
@@ -38,6 +34,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -54,17 +51,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build with Gradle
+      - name: Build APKs
         env:
           BUILD_TYPE: ${{ inputs.build_type || 'debug' }}
         run: |
-          # 1. 将 build 替换为 assemble，仅生成 APK，不触发 Bundle 生成任务
-          # 2. 传入 -Pandroid.injected.build.abi 参数，限制 Gradle 仅编译当前 Matrix 指定的 ABI
+          # 官方标准打包指令：调用 assemble 生成 APK
           ./gradlew assemble${BUILD_TYPE^} \
             -x test \
             --parallel \
             --build-cache \
-            -Pandroid.ndkVersion=28.0.13004108 \
             -Pandroid.injected.build.abi=${{ matrix.abi }}
 
       - name: Upload APK Artifacts
